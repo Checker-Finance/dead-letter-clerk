@@ -1,0 +1,52 @@
+redis:
+  addr: localhost:6379
+  password: ""
+  db: 0
+
+postgres:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: secret
+  dbname: delivery
+  sslmode: disable
+
+tasks:
+  - name: sync_orders_from_list
+    redis_key: new_orders
+    redis_type: list
+    db_table: public.orders
+    field_map:
+      id: id
+      user_id: user_id
+      amount: amount
+      created_at: created_at
+    schedule: "@every 15s"
+
+  - name: sync_metrics_from_sorted_set
+    redis_key: metrics:recent
+    redis_type: sorted_set
+    db_table: analytics.metrics
+    field_map:
+      timestamp: ts
+      value: metric_value
+      type: metric_type
+    schedule: "@every 1m"
+    checkpoint:
+      enabled: true
+      field: timestamp
+      last_value_key: checkpoint:metrics:recent
+
+  - name: sync_events_from_stream
+    redis_key: stream:events
+    redis_type: stream
+    db_table: public.event_log
+    field_map:
+      event_type: event_type
+      payload: payload
+      created_at: created_at
+    schedule: "@every 10s"
+    checkpoint:
+      enabled: true
+      field: __stream_id
+      last_value_key: checkpoint:stream:events
